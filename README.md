@@ -49,4 +49,15 @@ torch-scatter==2.0.7 torch-sparse==0.6.9 torch-cluster==1.5.9 torch-spline-conv=
 Download the [pre-processed](https://drive.google.com/file/d/1rZFcgEqDENsiweOnBVLc_deeQVN9CHRM/view?usp=drive_link) data for the .npy data files in file prepare_data/
 
 ## ⚡ Quick Start
+Train on the Table/Chair/Lamp category:
+```bash
+cd exps/method
+bash train_cfpa.sh
+```
+
+Test on the Table/Chair/Lamp category:
+```bash
+cd exps/method
+bash inference_cfpa.sh 
+```
 
