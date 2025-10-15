@@ -60,4 +60,5 @@ Test on the Table/Chair/Lamp category:
 cd exps/method
 bash inference_cfpa.sh 
 ```
-
+## ❤️ Acknowledgement
+This code is established upon the source code of "Generative 3D Part Assembly via Part-Whole-Hierarchy Message Passing".
