@@ -18,8 +18,7 @@ class FeatureProcessor(nn.Module):
             in_dim=feat_dim,
             out_size=num_super_parts,
             heads=1,
-            max_iter=100,
-            log_domain=True
+            max_iter=100
         )
 
         # Attention Layer Considering Geometric Distance Constraints
@@ -123,4 +122,5 @@ class FeatureProcessor(nn.Module):
         ).transpose(1, 2)  # [B,P,D]
 
         return expanded
+
 
