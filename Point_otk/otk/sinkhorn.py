@@ -9,28 +9,62 @@ def sinkhorn(dot, mask=None, eps=1e-03, return_kernel=False, max_iter=100):
     mask: n x in_size
     output: n x in_size x out_size
     """
-    n, in_size, out_size = dot.shape
+    n, in_size, out_size = dot.shape    
+    epsilon = 1e-8
     if return_kernel:
-        K = torch.exp(dot / eps)
+        dot_div_eps = dot / eps
+        max_val = torch.max(dot_div_eps, dim=-1, keepdim=True)[0].max(dim=-2, keepdim=True)[0]
+        K = torch.exp(dot_div_eps - max_val)
     else:
         K = dot
-    # K: n x in_size x out_size
+
+    # K: n x in_size x out_size 
     u = K.new_ones((n, in_size))
     v = K.new_ones((n, out_size))
     a = float(out_size / in_size)
     if mask is not None:
         mask = mask.float()
-        a = out_size / mask.sum(1, keepdim=True)
+        a = out_size / mask.sum(1, keepdim=True)   
     for _ in range(max_iter):
-        u = a / torch.bmm(K, v.view(n, out_size, 1)).view(n, in_size)
+        u = a / (torch.bmm(K, v.view(n, out_size, 1)).view(n, in_size) + epsilon)
         if mask is not None:
             u = u * mask
-        v = 1. / torch.bmm(u.view(n, 1, in_size), K).view(n, out_size)
+        v = 1. / (torch.bmm(u.view(n, 1, in_size), K).view(n, out_size) + epsilon)        
     K = u.view(n, in_size, 1) * (K * v.view(n, 1, out_size))
     if return_kernel:
         K = K / out_size
         return (K * dot).sum(dim=[1, 2])
+        
     return K
+
+# def sinkhorn(dot, mask=None, eps=1e-03, return_kernel=False, max_iter=100):
+#     """
+#     dot: n x in_size x out_size
+#     mask: n x in_size
+#     output: n x in_size x out_size
+#     """
+#     n, in_size, out_size = dot.shape
+#     if return_kernel:
+#         K = torch.exp(dot / eps)
+#     else:
+#         K = dot
+#     # K: n x in_size x out_size
+#     u = K.new_ones((n, in_size))
+#     v = K.new_ones((n, out_size))
+#     a = float(out_size / in_size)
+#     if mask is not None:
+#         mask = mask.float()
+#         a = out_size / mask.sum(1, keepdim=True)
+#     for _ in range(max_iter):
+#         u = a / torch.bmm(K, v.view(n, out_size, 1)).view(n, in_size)
+#         if mask is not None:
+#             u = u * mask
+#         v = 1. / torch.bmm(u.view(n, 1, in_size), K).view(n, out_size)
+#     K = u.view(n, in_size, 1) * (K * v.view(n, 1, out_size))
+#     if return_kernel:
+#         K = K / out_size
+#         return (K * dot).sum(dim=[1, 2])
+#     return K
 
 def log_sinkhorn(K, mask=None, eps=1.0, return_kernel=False, max_iter=100):
     """
@@ -90,7 +124,10 @@ def multihead_attn(input, weight, mask=None, eps=1.0, return_kernel=False,
         K = log_sinkhorn(K, mask, eps, return_kernel=return_kernel, max_iter=max_iter)
     else:
         if not return_kernel:
-            K = torch.exp(K / eps)
+            # K = torch.exp(K / eps)
+            K_div_eps = K / eps
+            max_val = torch.max(K_div_eps, dim=-1, keepdim=True)[0].max(dim=-2, keepdim=True)[0]
+            K = torch.exp(K_div_eps - max_val)
         K = sinkhorn(K, mask, eps, return_kernel=return_kernel, max_iter=max_iter)
     # K: nm x in_size x out_size
     if return_kernel:
