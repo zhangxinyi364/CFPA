@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project-specific ignores
+/exps/method/pytorch_scatter/
+/checkpoints/
+/exps/method/checkpoints/
+/prepare_data/
+/prep_data/
+*.pth
+*.pt
+*.ckpt
+*.npy
+*.npz

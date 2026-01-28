@@ -38,10 +38,11 @@ class FeatureProcessor(nn.Module):
 
 
 
-    def compute_distance_scores(self, features):
+    def compute_distance_scores(self, features, part_valid=None):
         """Calculate the distance score between features
         Args:
             features: [B, P, D] Batch Feature Vector
+            part_valid: [B, P] valid part mask (1 for valid parts)
         Returns:
             scores: [B, P] Distance score for each feature
         """
@@ -51,31 +52,43 @@ class FeatureProcessor(nn.Module):
         
         dist_matrix = x_square + y_square - 2.0 * torch.bmm(features, features.transpose(1, 2))  # [B, P, P]
         dist_matrix = torch.clamp(dist_matrix, min=0.0)  
-        
+
+        if part_valid is not None:
+            valid = (part_valid > 0).float()
+            pair_mask = valid.unsqueeze(2) * valid.unsqueeze(1)
+            dist_matrix = dist_matrix * pair_mask
+
         # Calculate the total distance between each feature and all other features.
         dist_scores = torch.sum(torch.sqrt(dist_matrix + 1e-8), dim=2)  # [B, P]
-        
+
+        if part_valid is not None:
+            dist_scores = dist_scores + (1.0 - valid) * 1e6
+
         return dist_scores
 
 
     def forward(self, base_feat, contact_points=None, part_valid=None):
         B, P, D = base_feat.size()
         
-        dist_scores = self.compute_distance_scores(base_feat)  # [B, P]
+        # 1. Calculate ranking scores based on feature distance
+        dist_scores = self.compute_distance_scores(base_feat, part_valid=part_valid)  # [B, P]
         
+        # 2. Sort by distance scores and construct the permutation matrix P
         _, indices = torch.sort(dist_scores, dim=1)  # [B, P]
         P_mat = torch.zeros(B, P, P, device=base_feat.device)
         batch_indices = torch.arange(B, device=base_feat.device).unsqueeze(1).expand(-1, P)
         P_mat[batch_indices, torch.arange(P).unsqueeze(0).expand(B, -1), indices] = 1
         
+        # 3. Reordering Feature
         ordered_feat = torch.bmm(P_mat, base_feat)  # [B, P, D]
-
-        part_valid = torch.gather(part_valid, 1, indices)
+        ordered_part_valid = part_valid.gather(1, indices) if part_valid is not None else None
 
         self.ordered_feat = ordered_feat
         
-        super_feat = self.otk_layer(ordered_feat, part_valid)  # [B, num_super_parts, D]
+        # 4. OT aggregation yields super-component features
+        super_feat = self.otk_layer(ordered_feat, ordered_part_valid)  # [B, num_super_parts, D]
         
+        # 4. Geometric Constraint Attention
         if contact_points is not None:
             # Modify the reordering method for contact_points
             ordered_contact_points = torch.zeros_like(contact_points)
@@ -89,6 +102,7 @@ class FeatureProcessor(nn.Module):
             geo_mask = geo_mask.mean(1) > 0.5
             geo_mask = geo_mask[:, :self.num_super_parts]
             
+            # Apply attention
             attn_out = self.geo_attention(
                 query=super_feat,
                 key=super_feat,
@@ -99,28 +113,30 @@ class FeatureProcessor(nn.Module):
             
             super_feat = (super_feat + attn_out).transpose(0, 1)
         
+        # 5. Feature Enhancement
         super_feat_expanded = self._expand_super_feat(super_feat, P)
         enhanced_feat = self.fusion_mlp(
             torch.cat([ordered_feat, super_feat_expanded], dim=-1)
         )
-        
-        return enhanced_feat, super_feat, P_mat, ordered_feat
+
+        return enhanced_feat, super_feat, P_mat, ordered_feat, ordered_part_valid
 
     def _expand_super_feat(self, super_feat, num_parts):
         """Extend superpart feature to the number of original parts"""
         B, S, D = super_feat.size()
 
+        # Add numerical stability processing
         scores = torch.matmul(super_feat, super_feat.transpose(-2, -1))  # [B,S,S]
         scores = scores / math.sqrt(self.feat_dim)  # resizing
         scores = F.softmax(scores, dim=-1)
         expanded = torch.matmul(scores, super_feat)  # [B,S,D]
 
+        # Interpolate to the original part count
         expanded = F.interpolate(
             expanded.transpose(1, 2),  # [B,D,S]
             size=num_parts,
             mode='nearest',
+            # align_corners=True  # Ensure consistency in interpolation
         ).transpose(1, 2)  # [B,P,D]
 
         return expanded
-
-
