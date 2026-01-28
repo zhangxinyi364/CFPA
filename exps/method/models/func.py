@@ -54,14 +54,6 @@ def generate_equivalent_transforms(gt_rot, gt_trans=None, sym_info=None):
  
         if gt_trans is not None:
             cur_trans = gt_trans.clone()
-   
-            for axis in range(3):
-                if isinstance(mask[axis], torch.Tensor):
-                    do_flip = mask[axis].any().item()
-                else:
-                    do_flip = bool(mask[axis])
-                if do_flip:
-                    cur_trans[..., axis] *= -1
             trans_matrices.append(cur_trans)
 
     rot_matrices = torch.stack(rot_matrices)
