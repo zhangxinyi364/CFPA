@@ -6,7 +6,7 @@ echo 'The work dir is: ' ${CURDIR}
 echo 'Start building.'
 cd ${CURDIR}
 echo 'Finish building.'
-CHECKPOINT=${CURDIR}/checkpoints/train/Chair/20250403_075620/checkpoint_ca48.51_ep612.pth.tar
+CHECKPOINT=${CURDIR}/checkpoints/train/Chair/20250403_075620/checkpoint.pth.tar
 
 
 # process.

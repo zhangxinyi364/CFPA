@@ -396,7 +396,7 @@ def main():
         # else:
         #     part_acc = 0.1
         
-        if (epoch + 1) >= 580 and (epoch + 1) % 2 == 0 :
+        if (epoch + 1) >= 0 and (epoch + 1) % 2 == 0 :
             part_acc, contact_acc = eval_func(val_loader, model, log_writer, args)
             z_utils.save_model(epoch, scaler, output_dir, model, optimizer, part_acc, best_acc, args, contact_acc=contact_acc)
         else:
