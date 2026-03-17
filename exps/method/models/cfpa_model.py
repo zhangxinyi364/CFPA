@@ -1,5 +1,5 @@
 # coding: utf-8
-
+import torch
 # import sys
 # sys.path.append('/root/autodl-tmp/zxy666')
 # print(sys.path)
